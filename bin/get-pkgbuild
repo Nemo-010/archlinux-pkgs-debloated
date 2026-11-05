@@ -45,7 +45,10 @@ case "$ARCH" in
 	*)             PKGARCH=$ARCH ;;
 esac
 if ! grep -q "arch=.*$PKGARCH" "$PKGBUILD"; then
-	sed -i -e "s|x86_64|$PKGARCH|" "$PKGBUILD"
+	# stamp the port arch, but leave arch-suffixed variables alone: renaming
+	# `makedepends_x86_64` to `makedepends_aarch64` pulls deps for the wrong arch
+	sed -i -e "s|^arch=.*|arch=('$PKGARCH')|" \
+	       -e "s|\([^_]\)x86_64|\1$PKGARCH|g" "$PKGBUILD"
 fi
 
 # always build without debug info
