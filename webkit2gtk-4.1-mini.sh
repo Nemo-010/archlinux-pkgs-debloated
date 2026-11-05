@@ -16,10 +16,8 @@ cd "$BUILD_DIR"
 
 # debloat package, remove features unlikely to be used by most applications
 sed -i '/-D USE_SOUP2=OFF/a\
-	-D ENABLE_FTL_JIT=OFF\
 	-D ENABLE_JAVASCRIPT_SHELL=OFF\
 	-D ENABLE_SAMPLING_PROFILER=OFF\
-	-D USE_SKIA=OFF\
 	-D ENABLE_WEBDRIVER=OFF\
 	-D USE_SYSPROF_CAPTURE=OFF\
 	-D ENABLE_JOURNALD_LOG=OFF' "$PKGBUILD"
@@ -31,6 +29,10 @@ sed -i 's|rm -r|rm -rf|' "$PKGBUILD"
 intercept-prepare <<'EOF'
 	sed -i "s|#if ENABLE(DEVELOPER_MODE)|#if 1|" Source/WebKit/Shared/glib/ProcessExecutablePathGLib.cpp
 	sed -i "s|#if ENABLE(DEVELOPER_MODE)|#if 1|" Source/WebKit/UIProcess/Launcher/glib/BubblewrapLauncher.cpp
+	# ScriptExecutable.cpp uses CompilationResult under ENABLE(JIT) but only gets
+	# its definition from a neighbour in the same unified source, and disabling
+	# features here reshuffles those groups
+	sed -i 's|#include "CodeBlock.h"|&\n#include "CompilationResult.h"|' Source/JavaScriptCore/runtime/ScriptExecutable.cpp
 EOF
 
 cat "$PKGBUILD"
