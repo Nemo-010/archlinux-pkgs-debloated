@@ -19,10 +19,17 @@ sed -i '/-D USE_SOUP2=OFF/a\
 	-D ENABLE_FTL_JIT=OFF\
 	-D ENABLE_JAVASCRIPT_SHELL=OFF\
 	-D ENABLE_SAMPLING_PROFILER=OFF\
-	-D USE_SKIA=OFF\
 	-D ENABLE_WEBDRIVER=OFF\
 	-D USE_SYSPROF_CAPTURE=OFF\
+	-D ENABLE_WEBGL=OFF\
 	-D ENABLE_JOURNALD_LOG=OFF' "$PKGBUILD"
+
+# the -docs package is thrown away, so do not build or move the docs
+sed -i \
+	-e 's|-D ENABLE_DOCUMENTATION=ON|-D ENABLE_DOCUMENTATION=OFF|' \
+	-e '/mkdir -p doc\/usr\/share/d' \
+	-e '/mv {"\$pkgdir",doc}\/usr\/share\/doc/d' \
+	"$PKGBUILD"
 
 # rm -r fails when target dir doesn't exist
 sed -i 's|rm -r|rm -rf|' "$PKGBUILD"
@@ -31,6 +38,14 @@ sed -i 's|rm -r|rm -rf|' "$PKGBUILD"
 intercept-prepare <<'EOF'
 	sed -i "s|#if ENABLE(DEVELOPER_MODE)|#if 1|" Source/WebKit/Shared/glib/ProcessExecutablePathGLib.cpp
 	sed -i "s|#if ENABLE(DEVELOPER_MODE)|#if 1|" Source/WebKit/UIProcess/Launcher/glib/BubblewrapLauncher.cpp
+	# ScriptExecutable.cpp uses CompilationResult under ENABLE(JIT) but only gets
+	# its definition from a neighbour in the same unified source, and disabling
+	# features here reshuffles those groups
+	sed -i 's|#include "CodeBlock.h"|&\n#include "CompilationResult.h"|' Source/JavaScriptCore/runtime/ScriptExecutable.cpp
+
+	# B3 is only enabled when FTL is on, but wasm uses its types behind ENABLE(JIT)
+	sed -i 's|^#if !PLATFORM(PLAYSTATION) && ENABLE(JIT)$|#if !PLATFORM(PLAYSTATION) \&\& ENABLE(JIT) \&\& ENABLE(B3_JIT)|' \
+		Source/JavaScriptCore/wasm/WasmAddressType.h Source/JavaScriptCore/wasm/WasmAddressType.cpp
 EOF
 
 cat "$PKGBUILD"
